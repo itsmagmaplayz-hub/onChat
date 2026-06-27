@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>onChat</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <a href="/">onChat</a>
+        {% if current_user.is_authenticated %}
+        <div class="right">
+          {% if current_user.avatar %}
+            <img src="/static/uploads/{{ current_user.avatar }}" class="top-avatar">
+          {% else %}
+            <span class="top-initial">{{ current_user.username[0]|upper }}</span>
+          {% endif %}
+          <span class="username">{{ current_user.username }}</span>
+          <a href="/profile">Profile</a>
+          <a href="/logout">Logout</a>
+        </div>
+        {% endif %}
+      </header>
+      <main>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class="flashes">
+            {% for m in messages %}
+              <li>{{ m }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </body>
+</html>

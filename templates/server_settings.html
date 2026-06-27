@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="server-settings">
+    <h2>Settings - {{ server.name }}</h2>
+    <p><a href="/server/{{ server.public_id }}">← Back to server</a></p>
+    <section class="settings-section">
+      <h3>Appearance</h3>
+      <form method="post" action="/server/{{ server.public_id }}/settings/update">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Name: <input name="name" value="{{ server.name }}"></label><br>
+        <label>Accent color: <input name="accent_color" value="{{ server.accent_color or '#6b3fb5' }}"></label><br>
+        <label>Description: <input name="description" value="{{ server.description or '' }}"></label><br>
+        <button>Save</button>
+      </form>
+    </section>
+
+    <section class="settings-section">
+      <h3>Roles</h3>
+      <form method="post" action="/server/{{ server.public_id }}/roles/create">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input name="role_name" placeholder="Role name" required>
+        <label><input type="checkbox" name="administrator"> Administrator</label>
+        <label><input type="checkbox" name="write_messages" checked> Write messages</label>
+        <label><input type="checkbox" name="create_channels"> Create channels</label>
+        <button>Create role</button>
+      </form>
+
+      <h4>Existing Roles</h4>
+      <p><a href="/server/{{ server.public_id }}/roles">Open roles overview</a></p>
+      <ul>
+        {% for r in roles %}
+          <li><a href="/server/{{ server.public_id }}/roles/{{ r.id }}">{{ r.name }}</a> {% if r.administrator %}<strong>(Administrator)</strong>{% endif %}</li>
+        {% else %}
+          <li>No roles yet</li>
+        {% endfor %}
+      </ul>
+
+      <h4>Members & Role Assignment</h4>
+      <table class="members-table">
+        <thead><tr><th>User</th><th>Current Role</th><th>Assign Role</th></tr></thead>
+        <tbody>
+        {% for m in members_info %}
+          <tr>
+            <td>{{ m.username }} ({{ m.id }})</td>
+            <td>{{ m.role or '—' }}</td>
+            <td>
+              <form method="post" action="/server/{{ server.public_id }}/roles/assign" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_id" value="{{ m.id }}">
+                <select name="role_id">
+                  <option value="">(remove)</option>
+                  {% for r in roles %}
+                    <option value="{{ r.id }}" {% if r.name==m.role %}selected{% endif %}>{{ r.name }}</option>
+                  {% endfor %}
+                </select>
+                <button>Save</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3">No members</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="settings-section">
+      <h3>Channels</h3>
+      <ul>
+        {% for c in server.channels %}
+          <li>#{{ c.name }} - <a href="/server/{{ server.public_id }}/channels/{{ c.id }}/settings">Edit</a></li>
+        {% else %}
+          <li>No channels</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="settings-section">
+      <h3>Danger Zone</h3>
+      <h4>Delete Server</h4>
+      <p>Deleting the server is permanent. Type the server name to confirm.</p>
+      <form method="post" action="/server/{{ server.public_id }}/delete">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input name="confirm_name" placeholder="Type server name" required>
+        <button style="background:#c44;color:#fff">Delete Server</button>
+      </form>
+    </section>
+  </div>
+{% endblock %}

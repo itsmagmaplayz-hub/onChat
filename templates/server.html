@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="server-view">
+    <aside class="channels">
+      <header class="server-header">{{ server.name }}</header>
+      <div class="server-actions">
+      {% if can_edit_server %}
+        <a class="settings-btn" href="/server/{{ server.public_id }}/settings">Settings</a>
+        <button id="addChannelBtn" class="btn">＋</button>
+      {% endif %}
+      </div>
+      <div id="addChannelForm" style="display:none;margin-top:8px">
+        <form method="post" action="/server/{{ server.public_id }}/channels/create">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input name="channel_name" placeholder="Channel name" required>
+          <label><input type="checkbox" name="private" id="privateChk"> Private</label>
+          <div id="channelAccess" style="display:none;margin-top:8px">
+            <div>
+              <label>Roles (select allowed):</label>
+              <input id="roleSearch" placeholder="Search roles..." />
+              <div id="roleList">
+                {% for r in roles %}
+                  <label class="role-item"><input type="checkbox" name="role_id" value="{{ r.id }}"> {{ r.name }}</label>
+                {% endfor %}
+              </div>
+            </div>
+            <div style="margin-top:8px">
+              <label>Users (select allowed):</label>
+              <input id="userSearch" placeholder="Search users..." />
+              <div id="userList">
+                {% for g,u in members.grouped.items() %}
+                  {% for m in u %}
+                    <label class="user-item"><input type="checkbox" name="user_id" value="{{ m.id }}"> {{ m.username }}</label>
+                  {% endfor %}
+                {% endfor %}
+                {% for m in members.ungrouped %}
+                  <label class="user-item"><input type="checkbox" name="user_id" value="{{ m.id }}"> {{ m.username }}</label>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          <button>Create channel</button>
+        </form>
+      </div>
+      <ul>
+        {% for c in channels %}
+          <li><button class="chan" data-room="server-{{ server.id }}-channel-{{ c.id }}"># {{ c.name }}</button></li>
+        {% endfor %}
+      </ul>
+    </aside>
+
+    <section class="chat">
+      <div id="messages" class="messages"><div class="placeholder">Select a channel to start chatting</div></div>
+      <form id="chatForm">
+        <input id="msgInput" autocomplete="off" placeholder="Message...">
+        <button>Send</button>
+      </form>
+    </section>
+
+    <aside class="members">
+      <h4>Members</h4>
+      {% if members.grouped and members.grouped|length > 0 %}
+        {% for role_name, users in members.grouped.items() %}
+          <div class="member-group">
+            <strong>{{ role_name }}</strong>
+            <ul>
+              {% for u in users %}
+                <li><span class="avatar">{{ u.username[0]|upper }}</span> {{ u.username }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      {% endif %}
+      {% if members.ungrouped and members.ungrouped|length > 0 %}
+        <ul>
+          {% for u in members.ungrouped %}
+            <li><span class="avatar">{{ u.username[0]|upper }}</span> {{ u.username }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {% if not (members.grouped and members.grouped|length > 0) %}
+          <p>No members</p>
+        {% endif %}
+      {% endif %}
+    </aside>
+  </div>
+
+  <script>
+    const socket = io();
+    let currentRoom = null;
+    const msgBox = document.getElementById('messages');
+    const chans = Array.from(document.querySelectorAll('.chan'));
+
+    function setActive(btn){
+      chans.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    chans.forEach(btn => {
+      btn.onclick = () => {
+        if (currentRoom) socket.emit('leave', {room: currentRoom, username: '{{ current_user.username }}'});
+        currentRoom = btn.dataset.room;
+        setActive(btn);
+        socket.emit('join', {room: currentRoom, username: '{{ current_user.username }}'});
+        msgBox.innerHTML = '';
+      }
+    });
+
+    // toggle add channel form
+    const addBtn = document.getElementById('addChannelBtn');
+    if (addBtn){
+      const formWrap = document.getElementById('addChannelForm');
+      const privateChk = document.getElementById('privateChk');
+      const channelAccess = document.getElementById('channelAccess');
+      addBtn.addEventListener('click', ()=>{
+        formWrap.style.display = formWrap.style.display === 'none' ? 'block' : 'none';
+      });
+      if (privateChk){
+        privateChk.addEventListener('change', ()=>{ channelAccess.style.display = privateChk.checked ? 'block' : 'none'; });
+      }
+      // simple search filters
+      const roleSearch = document.getElementById('roleSearch');
+      const roleList = document.getElementById('roleList');
+      if (roleSearch){ roleSearch.addEventListener('input', ()=>{
+        const q = roleSearch.value.toLowerCase().trim();
+        Array.from(roleList.querySelectorAll('.role-item')).forEach(el=> el.style.display = el.innerText.toLowerCase().includes(q)?'block':'none');
+      }); }
+      const userSearch = document.getElementById('userSearch');
+      const userList = document.getElementById('userList');
+      if (userSearch){ userSearch.addEventListener('input', ()=>{
+        const q = userSearch.value.toLowerCase().trim();
+        Array.from(userList.querySelectorAll('.user-item')).forEach(el=> el.style.display = el.innerText.toLowerCase().includes(q)?'block':'none');
+      }); }
+    }
+
+    // auto-select first channel
+    if (chans.length>0){
+      chans[0].click();
+    }
+
+    function appendMessage(text, cls='msg'){
+      const el = document.createElement('div'); el.className = cls; el.innerHTML = text; msgBox.appendChild(el);
+      el.scrollIntoView({behavior:'smooth', block:'end'});
+    }
+
+    socket.on('status', data => appendMessage(`<span class=ts>${new Date().toLocaleTimeString()}</span> <em>${data.msg}</em>`, 'status'));
+    socket.on('history', data => {
+      if (data.room !== currentRoom) return;
+      msgBox.innerHTML = '';
+      data.messages.forEach(m => {
+        if (m.deleted){ appendMessage(`<span class=ts>${m.ts}</span> <em>Message deleted</em>`, 'status'); return; }
+        const text = `<span class=ts>${m.ts||''}</span> <strong>${m.username}</strong>: ${m.msg}` + (m.edited? ' <em>(edited)</em>':'');
+        const el = document.createElement('div'); el.className='msg'; el.dataset.id = m.id; el.innerHTML = text;
+        if ({{ current_user.id }} == m.sender_id || {{ current_user.id }} == {{ server.owner_id }}){
+          const btns = document.createElement('span'); btns.className='mcontrols';
+          btns.innerHTML = `<button class=edit data-id=${m.id}>Edit</button> <button class=del data-id=${m.id}>Delete</button>`;
+          el.appendChild(btns);
+        }
+        msgBox.appendChild(el);
+      });
+    });
+
+    socket.on('message', data => {
+      appendMessage(`<span class=ts>${data.ts || new Date().toLocaleTimeString()}</span> <strong>${data.username}</strong>: ${data.msg}`, 'msg');
+    });
+
+    socket.on('message_edited', d => {
+      const el = msgBox.querySelector(`[data-id="${d.message_id}"]`);
+      if (el) el.innerHTML = `<span class=ts>${new Date().toLocaleTimeString()}</span> <strong>edited</strong>: ${d.new_content}`;
+    });
+
+    socket.on('message_deleted', d => {
+      const el = msgBox.querySelector(`[data-id="${d.message_id}"]`);
+      if (el) el.innerHTML = `<em class=deleted>Message deleted</em>`;
+    });
+
+    document.getElementById('chatForm').onsubmit = e => {
+      e.preventDefault();
+      const inp = document.getElementById('msgInput');
+      if (!currentRoom || !inp.value.trim()) return;
+      const ts = new Date().toLocaleTimeString();
+      socket.emit('message', {room: currentRoom, username: '{{ current_user.username }}', msg: inp.value, ts: ts});
+      inp.value = '';
+      document.getElementById('msgInput').focus();
+    };
+
+    // delegate edit/delete clicks
+    msgBox.addEventListener('click', e =>{
+      if (e.target.matches('button.edit')){
+        const id = e.target.dataset.id;
+        const newc = prompt('Edit message:');
+        if (newc) socket.emit('edit_message', {message_id: id, new_content: newc});
+      }
+      if (e.target.matches('button.del')){
+        const id = e.target.dataset.id;
+        if (confirm('Delete this message?')) socket.emit('delete_message', {message_id: id});
+      }
+    });
+  </script>
+
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="role-edit">
+    <h2>Role: {{ role.name }}</h2>
+    <p><a href="/server/{{ server.public_id }}/settings">← Back to settings</a></p>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="looks">Looks</button>
+      <button class="tab-btn" data-tab="perms">Permissions</button>
+      <button class="tab-btn" data-tab="users">Users</button>
+    </div>
+    <div class="tab" id="looks">
+      <form method="post" action="/server/{{ server.public_id }}/roles/{{ role.id }}/update">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Role name: <input name="name" value="{{ role.name }}"></label><br>
+        <label>Color: <input type="color" name="color" value="{{ role.color or '#6b3fb5' }}"></label><br>
+        <label><input type="checkbox" name="group_members" {% if role.group_members %}checked{% endif %}> Group users by role in user list</label><br>
+        <button>Save Looks</button>
+      </form>
+    </div>
+    <div class="tab" id="perms" style="display:none">
+      <form method="post" action="/server/{{ server.public_id }}/roles/{{ role.id }}/update">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label><input type="checkbox" name="administrator" {% if role.administrator %}checked{% endif %}> Administrator (all permissions)</label><br>
+        <label><input type="checkbox" name="write_messages" {% if role.write_messages %}checked{% endif %}> Write messages</label><br>
+        <label><input type="checkbox" name="edit_server" {% if role.edit_server %}checked{% endif %}> Edit server</label><br>
+        <label><input type="checkbox" name="create_threads" {% if role.create_threads %}checked{% endif %}> Create threads</label><br>
+        <label><input type="checkbox" name="write_threads" {% if role.write_threads %}checked{% endif %}> Write in threads</label><br>
+        <label><input type="checkbox" name="edit_threads" {% if role.edit_threads %}checked{% endif %}> Edit threads</label><br>
+        <label><input type="checkbox" name="create_channels" {% if role.create_channels %}checked{% endif %}> Create channels</label><br>
+        <label><input type="checkbox" name="edit_channels" {% if role.edit_channels %}checked{% endif %}> Edit channels</label><br>
+        <button>Save Permissions</button>
+      </form>
+    </div>
+    <div class="tab" id="users" style="display:none">
+      <h4>Members in role</h4>
+      <form method="post" action="/server/{{ server.public_id }}/roles/{{ role.id }}/users/update">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="multi-select-search">
+          <input id="memberSearch" placeholder="Search users..." />
+          <div id="memberList" class="member-list">
+            {% for m in members %}
+              <label class="member-item"><input type="checkbox" name="user_{{ m.id }}" value="1" {% if m.id in role_members %}checked{% endif %}> <span class="mname">{{ m.username }}</span> <span class="mid">({{ m.id }})</span></label>
+            {% endfor %}
+          </div>
+        </div>
+        <button>Update Role Members</button>
+      </form>
+      <script>
+        const search = document.getElementById('memberSearch');
+        const list = document.getElementById('memberList');
+        search.addEventListener('input', ()=>{
+          const q = search.value.toLowerCase().trim();
+          Array.from(list.querySelectorAll('.member-item')).forEach(el=>{
+            const name = el.querySelector('.mname').innerText.toLowerCase();
+            const id = el.querySelector('.mid').innerText.toLowerCase();
+            el.style.display = (name.includes(q) || id.includes(q)) ? 'block' : 'none';
+          });
+        });
+      </script>
+    </div>
+  </div>
+  <script>
+    document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const t=btn.dataset.tab;
+      document.querySelectorAll('.tab').forEach(tab=>tab.style.display=(tab.id===t?'block':'none'));
+    }));
+  </script>
+{% endblock %}

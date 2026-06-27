@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="profile">
+    <h2>Profile</h2>
+    <div class="profile-row">
+      <div>
+        <h4>Current Avatar</h4>
+        {% if current_user.avatar %}
+          <img src="/static/uploads/{{ current_user.avatar }}" style="width:120px;border-radius:8px">
+        {% else %}
+          <div class="top-initial" style="width:120px;height:120px;font-size:48px">{{ current_user.username[0]|upper }}</div>
+        {% endif %}
+      </div>
+
+      <div>
+        <h4>Upload & Crop</h4>
+        <input type="file" id="fileInput" accept="image/*"><br>
+        <label>Crop size (%): <input type="range" id="cropRange" min="20" max="100" value="60"></label>
+        <div><canvas id="preview" style="border:1px solid rgba(255,255,255,0.06);max-width:320px"></canvas></div>
+        <button id="uploadCropped">Upload cropped avatar</button>
+      </div>
+    </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const ctx = preview.getContext('2d');
+    const cropRange = document.getElementById('cropRange');
+    let img = new Image();
+    let loaded = false;
+    fileInput.onchange = e => {
+      const f = e.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = ev => { img.src = ev.target.result; }
+      reader.readAsDataURL(f);
+      img.onload = () => { loaded = true; renderPreview(); }
+    }
+    cropRange.oninput = () => { if(loaded) renderPreview(); }
+    function renderPreview(){
+      const sizePct = cropRange.value/100;
+      const side = Math.min(img.width, img.height) * sizePct;
+      preview.width = preview.height = 320;
+      // draw center-crop scaled to canvas
+      const sx = (img.width - side)/2; const sy = (img.height - side)/2;
+      ctx.clearRect(0,0,preview.width,preview.height);
+      ctx.drawImage(img, sx, sy, side, side, 0,0,preview.width,preview.height);
+    }
+    document.getElementById('uploadCropped').onclick = async ()=>{
+      if(!loaded) return alert('Choose an image first');
+      const data = preview.toDataURL('image/png');
+      const res = await fetch('/upload_avatar_ajax', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+      const j = await res.json();
+      if (j.ok) location.reload(); else alert('Upload failed');
+    }
+  </script>
+
+{% endblock %}

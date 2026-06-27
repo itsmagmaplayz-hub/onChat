@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="dm-view">
+    <aside class="dm-left">
+      <a href="/dashboard">← Back</a>
+      <h3><span class="avatar">{{ other.username[0]|upper }}</span> {{ other.username }}</h3>
+    </aside>
+    <section class="dm-chat">
+      <div id="dmMessages" class="messages">
+        {% for m in history %}
+          {% if m.deleted %}
+            <div class="msg deleted" data-id="{{ m.id }}"><em>Message deleted</em></div>
+          {% else %}
+            <div class="msg" data-id="{{ m.id }}"><span class="ts">{{ m.ts }}</span> <strong>{{ m.sender }}</strong>: {{ m.content }} {% if m.edited %}<em>(edited)</em>{% endif %}
+              {% if m.sender_id == current_user.id %}
+                <span class="mcontrols"><button class="edit" data-id="{{ m.id }}">Edit</button> <button class="del" data-id="{{ m.id }}">Delete</button></span>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <form id="dmForm">
+        <input id="dmInput" autocomplete="off" placeholder="Message {{ other.username }}...">
+        <button>Send</button>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    const dmSocket = io();
+    const otherId = {{ other.id }};
+    const myName = '{{ current_user.username }}';
+    const dmBox = document.getElementById('dmMessages');
+    document.getElementById('dmForm').onsubmit = e =>{
+      e.preventDefault();
+      const v = document.getElementById('dmInput').value;
+      if(!v.trim()) return;
+      // emit to a private room for the pair
+      const room = `dm-${Math.min({{ current_user.id }}, otherId)}-${Math.max({{ current_user.id }}, otherId)}`;
+      dmSocket.emit('join', {room: room, username: myName});
+      const ts = new Date().toLocaleTimeString();
+      dmSocket.emit('dm', {room: room, username: myName, msg: v, from: {{ current_user.id }}, to: otherId, ts: ts});
+      const el = document.createElement('div'); el.className='msg'; el.innerHTML = `<span class=ts>${ts}</span> <strong>${myName}</strong>: ${v}`; dmBox.appendChild(el); dmBox.scrollTop = dmBox.scrollHeight;
+      document.getElementById('dmInput').value = '';
+    };
+
+    dmSocket.on('dm', data => {
+      const el = document.createElement('div'); el.className='msg'; el.innerHTML = `<span class=ts>${data.ts}</span> <strong>${data.username}</strong>: ${data.msg}`; dmBox.appendChild(el); dmBox.scrollTop = dmBox.scrollHeight;
+    });
+
+    dmSocket.on('dm_edited', d => {
+      const el = dmBox.querySelector(`[data-id="${d.message_id}"]`);
+      if (el) el.innerHTML = `<strong>edited</strong>: ${d.new_content}`;
+    });
+    dmSocket.on('dm_deleted', d => {
+      const el = dmBox.querySelector(`[data-id="${d.message_id}"]`);
+      if (el) el.innerHTML = `<em class=deleted>Message deleted</em>`;
+    });
+
+    dmBox.addEventListener('click', e=>{
+      if (e.target.matches('button.edit')){
+        const id = e.target.dataset.id;
+        const newc = prompt('Edit message:');
+        if (newc) dmSocket.emit('edit_dm', {message_id: id, new_content: newc, room: `dm-${Math.min({{ current_user.id }}, otherId)}-${Math.max({{ current_user.id }}, otherId)}`});
+      }
+      if (e.target.matches('button.del')){
+        const id = e.target.dataset.id;
+        if (confirm('Delete this message?')) dmSocket.emit('delete_dm', {message_id: id, room: `dm-${Math.min({{ current_user.id }}, otherId)}-${Math.max({{ current_user.id }}, otherId)}`});
+      }
+    });
+  </script>
+
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="channel-settings">
+    <h2>Channel Settings — {{ channel.name }}</h2>
+    <p><a href="/server/{{ server.public_id }}/settings">← Back to settings</a></p>
+
+    <section>
+      <form method="post" action="/server/{{ server.public_id }}/channels/{{ channel.id }}/settings/update">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Name: <input name="name" value="{{ channel.name }}"></label><br>
+        <label>Type:
+          <select name="channel_type">
+            <option value="text" {% if channel.channel_type=='text' %}selected{% endif %}>Text</option>
+            <option value="announcements" {% if channel.channel_type=='announcements' %}selected{% endif %}>Announcements</option>
+            <option value="forum" {% if channel.channel_type=='forum' %}selected{% endif %}>Forum</option>
+          </select>
+        </label><br>
+        <label><input type="checkbox" name="write_messages" {% if channel.write_messages %}checked{% endif %}> Allow messages</label><br>
+        <label><input type="checkbox" name="private" id="chPrivate" {% if channel.private %}checked{% endif %}> Private</label><br>
+        <div id="chAccess" style="display:{{ 'block' if channel.private else 'none' }};margin-top:8px">
+          <label>Roles allowed:</label>
+          <div>
+            {% for r in roles %}
+              <label><input type="checkbox" name="role_id" value="{{ r.id }}" {% if r.id in allowed_role_ids %}checked{% endif %}> {{ r.name }}</label>
+            {% endfor %}
+          </div>
+          <label>Users allowed:</label>
+          <div>
+            {% for m in members %}
+              <label><input type="checkbox" name="user_id" value="{{ m.id }}" {% if m.id in allowed_user_ids %}checked{% endif %}> {{ m.username }}</label>
+            {% endfor %}
+          </div>
+        </div>
+        <button>Save Channel</button>
+      </form>
+    </section>
+
+    <section style="margin-top:16px">
+      <h3>Delete Channel</h3>
+      <form method="post" action="/server/{{ server.public_id }}/channels/{{ channel.id }}/delete">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p>Type the channel name to confirm deletion:</p>
+        <input name="confirm_name" placeholder="Type channel name" required>
+        <button style="background:#c44;color:#fff">Delete Channel</button>
+      </form>
+    </section>
+
+    <script>
+      document.getElementById('chPrivate').addEventListener('change', ()=>{
+        document.getElementById('chAccess').style.display = document.getElementById('chPrivate').checked ? 'block':'none';
+      });
+    </script>
+  </div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="dashboard">
+    <section class="left">
+      <h3>Your Friends</h3>
+      <ul>
+        {% for f in friends %}
+          <li><a class="dm-link" href="/dm/{{ f.id }}"><span class="avatar">{{ f.username[0]|upper }}</span> {{ f.username }}</a></li>
+        {% else %}
+          <li>No friends yet</li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="/add_friend">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input name="friend_username" placeholder="Friend's username">
+        <button type="submit">Add Friend</button>
+      </form>
+    </section>
+
+    <section class="middle">
+      <h3>Servers</h3>
+      <ul>
+        {% for s in servers %}
+          <li><a href="/server/{{ s.public_id }}">{{ s.name }}</a> <small class="muted">#{{ s.public_id }}</small></li>
+        {% else %}
+          <li>No servers</li>
+        {% endfor %}
+      </ul>
+      <h4>Create Server</h4>
+      <form method="post" action="/create_server">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input name="server_name" placeholder="Server name" required>
+        <label><input type="checkbox" name="private"> Private</label>
+        <input name="code" placeholder="Invite code (private only)">
+        <button type="submit">Create</button>
+      </form>
+
+      <h4>Upload Avatar</h4>
+      <form method="post" action="/upload_avatar" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="file" name="avatar" accept="image/*">
+        <button type="submit">Upload</button>
+      </form>
+    </section>
+
+    <section class="right">
+      <h3>Your Servers</h3>
+      <ul>
+        {% for s in my_servers %}
+          <li><a href="/server/{{ s.public_id }}">{{ s.name }}</a></li>
+        {% else %}
+          <li>None</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+{% endblock %}

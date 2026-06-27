@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="role-overview">
+    <h2>Roles overview — {{ server.name }}</h2>
+    <p><a href="/server/{{ server.public_id }}/settings">← Back to settings</a></p>
+    <div class="roles-grid">
+      {% for r in roles %}
+        <div class="role-card">
+          <div class="role-header">
+            <div class="role-swatch" style="background: {{ r.color or '#6b3fb5' }}"></div>
+            <div class="role-name">{{ r.name }}</div>
+            {% if r.administrator %}<div class="role-admin">Admin</div>{% endif %}
+          </div>
+          <div class="role-body">
+            <div class="role-count">Members: {{ role_counts.get(r.id, 0) }}</div>
+            <a href="/server/{{ server.public_id }}/roles/{{ r.id }}">Edit role</a>
+          </div>
+        </div>
+      {% else %}
+        <p>No roles</p>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}
